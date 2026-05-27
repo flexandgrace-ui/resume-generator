@@ -7,8 +7,8 @@ exports.handler = async function(event, context) {
   if (!apiKey) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'API key not configured' })
-    };
+      body: JSON.stringify({ error: 'API key not configured - key is missing' })
+    }; 
   }
 
   try {
