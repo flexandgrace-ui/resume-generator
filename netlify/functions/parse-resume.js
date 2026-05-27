@@ -83,7 +83,8 @@ ${resumeText}`;
   } catch (err) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: err.message, stack: err.stack })
     };
   }
 };
