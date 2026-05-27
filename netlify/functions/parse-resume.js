@@ -71,14 +71,28 @@ ${resumeText}`;
       })
     });
 
-    const data = await response.json();
+  const data = await response.json();
+    
+    // Log the full response for debugging
+    console.log('Anthropic response:', JSON.stringify(data));
+    
+    if (data.error) {
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: data.error.message || JSON.stringify(data.error) })
+      };
+    }
+    
     const raw = data.content?.[0]?.text || '';
+    console.log('Raw text:', raw);
     const clean = raw.replace(/```json|```/g, '').trim();
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ result: clean })
+    };
     };
   } catch (err) {
     return {
