@@ -134,11 +134,11 @@
       <button class="panel-tab" onclick="switchPanel('edit')" id="tab-edit">Edit Fields</button>
     </div>
     <div class="panel-content" id="panel-paste">
-      <p class="paste-hint">Paste your resume as plain text. Our AI will parse it into structured fields automatically.</p>
+      <p class="paste-hint">Paste your resume as plain text. Our AI will analyze it into structured fields automatically.</p>
       <div id="error-box" class="error-box" style="display:none;"></div>
       <textarea class="resume-textarea" id="resume-input" placeholder="Paste your resume text here..."></textarea>
       <div class="btn-row">
-        <button class="btn-primary" onclick="parseResume()" id="parse-btn">Parse Resume</button>
+        <button class="btn-primary" onclick="parseResume()" id="parse-btn">Analyze Resume</button>
         <button class="btn-secondary" onclick="loadSample()">Try Sample</button>
       </div>
       <div class="loading-indicator" id="loading" style="display:none;">
@@ -148,7 +148,7 @@
     </div>
     <div class="panel-content" id="panel-edit" style="display:none;">
       <div id="edit-fields">
-        <p style="font-size:11px;color:#999;">Parse a resume or load the sample to edit fields.</p>
+        <p style="font-size:11px;color:#999;">Analyze a resume or load the sample to edit fields.</p>
       </div>
     </div>
   </div>
