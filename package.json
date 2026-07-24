@@ -1,0 +1,11 @@
+{
+  "name": "resume-generator",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "generate-codes": "node scripts/generate-codes.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  }
+}

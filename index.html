@@ -114,6 +114,22 @@
     .preview-area { background: none; padding: 0; }
     .resume-page { box-shadow: none; }
   }
+
+  /* LICENSE GATE */
+  .license-badge { font-size: 10px; color: #A6E5B8; letter-spacing: 0.05em; background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
+  .license-gate { position: fixed; inset: 0; background: rgba(17,17,17,0.92); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .gate-card { background: #fff; border-radius: 8px; padding: 32px 28px; max-width: 360px; width: 100%; text-align: center; }
+  .gate-title { font-size: 18px; font-weight: 700; margin: 8px 0 6px; }
+  .gate-sub { font-size: 12px; color: #777; line-height: 1.5; margin-bottom: 18px; }
+  .gate-input { width: 100%; padding: 11px 12px; border: 1px solid #DDD; border-radius: 4px; font-size: 14px; text-align: center; letter-spacing: 0.05em; text-transform: uppercase; font-family: 'DM Sans', sans-serif; outline: none; }
+  .gate-input:focus { border-color: #999; }
+  .gate-error { margin-top: 10px; background: #FFF3F0; border: 1px solid #FFCCBB; border-radius: 4px; padding: 8px 10px; font-size: 11px; color: #c0392b; line-height: 1.5; text-align: left; }
+  .gate-error a { color: #c0392b; font-weight: 600; }
+  .gate-sample-link { display: block; width: 100%; margin-top: 14px; background: transparent; border: none; color: #888; font-size: 11px; text-decoration: underline; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .gate-sample-link:hover { color: #555; }
+  .gate-shop-link { margin-top: 16px; font-size: 10px; color: #AAA; }
+  .gate-shop-link a { color: #888; }
+  .error-box a { color: #c0392b; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -123,7 +139,23 @@
     <div class="header-eyebrow">Flex & Grace</div>
     <div class="header-title">Resume Generator</div>
   </div>
-  <div class="header-meta">ATS-Friendly · 12 Templates</div>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <div class="license-badge" id="license-badge" style="display:none;"></div>
+    <div class="header-meta">ATS-Friendly · 12 Templates</div>
+  </div>
+</div>
+
+<div class="license-gate" id="license-gate" style="display:none;">
+  <div class="gate-card">
+    <div class="header-eyebrow" style="color:#999;">Flex & Grace</div>
+    <div class="gate-title">Enter Your Access Code</div>
+    <p class="gate-sub">Each code from the Flex & Grace Etsy shop unlocks 5 resume generations.</p>
+    <input type="text" id="gate-code-input" class="gate-input" placeholder="FG-XXXX-XXXX" autocomplete="off" onkeydown="if(event.key==='Enter') submitGateCode()">
+    <div id="gate-error" class="gate-error" style="display:none;"></div>
+    <button class="btn-primary" style="width:100%; margin-top:10px;" onclick="submitGateCode()" id="gate-unlock-btn">Unlock</button>
+    <button class="gate-sample-link" onclick="skipGateForSample()">Just want to browse templates? Try a free sample →</button>
+    <div class="gate-shop-link">Need a code? <a href="https://www.etsy.com/shop/FlexandGrace" target="_blank" rel="noopener">Visit the Flex & Grace Etsy shop</a></div>
+  </div>
 </div>
 
 <div class="layout">
@@ -246,12 +278,14 @@ let state = {
   selectedCategory: 'Corporate',
   useAltColor: false,
   activePanel: 'paste',
+  license: { code: null, verified: false, usesRemaining: null, maxUses: null },
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 function init() {
   renderCategoryTabs();
   renderVariants();
+  initLicenseGate();
 }
 
 // ── Panel Switch ──────────────────────────────────────────────────────────────
@@ -317,14 +351,150 @@ function toggleColor() {
   renderPreview();
 }
 
+// ── License Gating ────────────────────────────────────────────────────────────
+const ETSY_SHOP_URL = 'https://www.etsy.com/shop/FlexandGrace';
+const LICENSE_STORAGE_KEY = 'fg_license_code';
+let pendingGeneration = null;
+
+function etsyLinkHTML() {
+  return ` Additional access codes are available in the <a href="${ETSY_SHOP_URL}" target="_blank" rel="noopener">Flex & Grace Etsy shop</a>.`;
+}
+
+function initLicenseGate() {
+  const savedCode = sessionStorage.getItem(LICENSE_STORAGE_KEY);
+  if (savedCode) {
+    verifyLicense(savedCode, { silent: true, showGateOnFail: true });
+  } else {
+    showGate();
+  }
+}
+
+function showGate(message, isHTML) {
+  const errEl = document.getElementById('gate-error');
+  if (message) {
+    if (isHTML) errEl.innerHTML = message; else errEl.textContent = message;
+    errEl.style.display = 'block';
+  } else {
+    errEl.style.display = 'none';
+  }
+  document.getElementById('license-gate').style.display = 'flex';
+}
+
+function hideGate() {
+  document.getElementById('license-gate').style.display = 'none';
+}
+
+function renderLicenseBadge() {
+  const el = document.getElementById('license-badge');
+  if (state.license.verified) {
+    el.style.display = 'block';
+    el.textContent = `${state.license.usesRemaining} of ${state.license.maxUses} resume generations remaining`;
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+async function verifyLicense(codeInput, opts = {}) {
+  const code = (codeInput || '').trim().toUpperCase();
+  if (!code) {
+    if (!opts.silent) showGate('Please enter a code.');
+    return false;
+  }
+
+  const btn = document.getElementById('gate-unlock-btn');
+  if (btn && !opts.silent) { btn.disabled = true; btn.textContent = 'Checking…'; }
+
+  try {
+    const res = await fetch('/.netlify/functions/verify-license', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const json = await res.json();
+
+    if (json.valid) {
+      state.license = { code, verified: true, usesRemaining: json.usesRemaining, maxUses: json.maxUses };
+      sessionStorage.setItem(LICENSE_STORAGE_KEY, code);
+      hideGate();
+      renderLicenseBadge();
+      if (pendingGeneration) {
+        const fn = pendingGeneration;
+        pendingGeneration = null;
+        fn();
+      }
+      return true;
+    } else {
+      state.license = { code: null, verified: false, usesRemaining: null, maxUses: null };
+      sessionStorage.removeItem(LICENSE_STORAGE_KEY);
+      if (opts.showGateOnFail || !opts.silent) {
+        let msg = json.error || 'Invalid code.';
+        if (json.usesRemaining === 0) msg += etsyLinkHTML();
+        showGate(msg, true);
+      }
+      return false;
+    }
+  } catch (e) {
+    if (!opts.silent) showGate('Could not verify code — please check your connection and try again.');
+    return false;
+  } finally {
+    if (btn && !opts.silent) { btn.disabled = false; btn.textContent = 'Unlock'; }
+  }
+}
+
+function submitGateCode() {
+  verifyLicense(document.getElementById('gate-code-input').value);
+}
+
+function skipGateForSample() {
+  hideGate();
+  loadSample();
+}
+
 // ── Parse Resume ──────────────────────────────────────────────────────────────
 async function parseResume() {
   const text = document.getElementById('resume-input').value.trim();
   if (!text) return;
+
+  if (!state.license.verified) {
+    pendingGeneration = () => parseResume();
+    showGate('Enter your access code to generate your resume.');
+    return;
+  }
+
   document.getElementById('parse-btn').disabled = true;
   document.getElementById('loading').style.display = 'flex';
   document.getElementById('error-box').style.display = 'none';
 
+  try {
+    const consumeRes = await fetch('/.netlify/functions/consume-generation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: state.license.code })
+    });
+    const consumeJson = await consumeRes.json();
+
+    if (!consumeJson.success) {
+      state.license.usesRemaining = consumeJson.usesRemaining ?? 0;
+      renderLicenseBadge();
+      const maxUses = consumeJson.maxUses || state.license.maxUses || 5;
+      showError(`You've used all ${maxUses} generations on this code.${etsyLinkHTML()}`, true);
+      return;
+    }
+
+    state.license.usesRemaining = consumeJson.usesRemaining;
+    state.license.maxUses = consumeJson.maxUses;
+    renderLicenseBadge();
+
+    await runParse(text);
+  } catch (e) {
+    showError("Couldn't verify your access code — please try again.");
+  } finally {
+    document.getElementById('parse-btn').disabled = false;
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+async function runParse(text) {
   try {
     const res = await fetch('/.netlify/functions/parse-resume', {
       method: 'POST',
@@ -344,9 +514,6 @@ async function parseResume() {
     renderEditFields();
     switchPanel('edit');
     document.getElementById('export-bar').style.display = 'flex';
-  } finally {
-    document.getElementById('parse-btn').disabled = false;
-    document.getElementById('loading').style.display = 'none';
   }
 }
 
@@ -358,14 +525,21 @@ function emptyData() {
     certifications:[], projects:[], awards:[] };
 }
 
-function showError(msg) {
+function showError(msg, isHTML) {
   const el = document.getElementById('error-box');
-  el.textContent = msg; el.style.display = 'block';
+  if (isHTML) el.innerHTML = msg; else el.textContent = msg;
+  el.style.display = 'block';
 }
 
 function loadSample() {
   document.getElementById('resume-input').value = SAMPLE_RESUME;
-  parseResume();
+  document.getElementById('parse-btn').disabled = true;
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('error-box').style.display = 'none';
+  runParse(SAMPLE_RESUME).finally(() => {
+    document.getElementById('parse-btn').disabled = false;
+    document.getElementById('loading').style.display = 'none';
+  });
 }
 
 // ── Render Edit Fields ────────────────────────────────────────────────────────
