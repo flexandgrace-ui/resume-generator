@@ -9,10 +9,16 @@ create table if not exists licenses (
   last_used_at timestamptz
 );
 
--- RLS is enabled with no policies, so only requests using the service_role
--- key (used exclusively by the Netlify functions, never shipped to the
--- browser) can read or write this table.
+-- RLS is enabled with no policies, so anon/authenticated requests are
+-- blocked outright. service_role bypasses RLS policy checks, but that
+-- bypass doesn't substitute for a base Postgres GRANT — without one,
+-- direct table access (e.g. an insert from the seed script, or the
+-- plain select in verify-license.js) still fails with "permission
+-- denied for table licenses". Grant it explicitly rather than relying
+-- on this project's default privileges.
 alter table licenses enable row level security;
+grant usage on schema public to service_role;
+grant select, insert, update, delete on licenses to service_role;
 
 -- Atomically decrements uses_remaining by 1, guarded by uses_remaining > 0
 -- so concurrent requests for the same code can never drive it negative.
@@ -41,3 +47,5 @@ begin
   end if;
 end;
 $$;
+
+grant execute on function consume_license_use(text) to service_role;
