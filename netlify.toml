@@ -2,6 +2,9 @@
   publish = "."
   functions = "netlify/functions"
 
+[functions."check-code-supply"]
+  schedule = "@daily"
+
 [[headers]]
   for = "/*"
   [headers.values]

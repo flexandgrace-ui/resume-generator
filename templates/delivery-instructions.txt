@@ -1,0 +1,13 @@
+Welcome to your Flex & Grace Resume Generator access!
+
+Your code: {{CODE}}
+
+How to use it:
+1. Go to flexandgrace-resume.netlify.app
+2. Enter your code when prompted
+3. Paste your resume and choose from 12 templates
+4. You have 5 resume generations included
+
+Need more? Additional codes are available in the Flex & Grace Etsy shop.
+
+Thank you for supporting Flex & Grace — a small, family-run shop.
