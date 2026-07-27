@@ -8,26 +8,8 @@
 // current directory.
 
 const fs = require('fs');
-const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
-
-// Excludes visually ambiguous characters (0/O, 1/I/L).
-const CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const SEGMENT_LEN = 4;
-const MAX_USES = 5;
-
-function randomSegment() {
-  const bytes = crypto.randomBytes(SEGMENT_LEN);
-  let out = '';
-  for (let i = 0; i < SEGMENT_LEN; i++) {
-    out += CHARSET[bytes[i] % CHARSET.length];
-  }
-  return out;
-}
-
-function generateCode() {
-  return `FG-${randomSegment()}-${randomSegment()}`;
-}
+const { generateAndInsertCodes } = require('../lib/codes');
 
 async function main() {
   const count = parseInt(process.argv[2] || '100', 10);
@@ -41,14 +23,10 @@ async function main() {
 
   const supabase = createClient(url, key);
 
-  const codes = new Set();
-  while (codes.size < count) {
-    codes.add(generateCode());
-  }
-  const rows = [...codes].map(code => ({ code, max_uses: MAX_USES, uses_remaining: MAX_USES }));
-
-  const { data, error } = await supabase.from('licenses').insert(rows).select('code');
-  if (error) {
+  let data;
+  try {
+    data = await generateAndInsertCodes(supabase, count);
+  } catch (error) {
     console.error('Insert failed:', error.message);
     process.exit(1);
   }

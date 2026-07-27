@@ -49,3 +49,48 @@ end;
 $$;
 
 grant execute on function consume_license_use(text) to service_role;
+
+-- Etsy auto-delivery: tracks which codes have already been handed out to a
+-- buyer, separate from uses_remaining (which tracks generations left on a
+-- code once it's in a customer's hands).
+alter table licenses add column if not exists assigned boolean not null default false;
+alter table licenses add column if not exists assigned_at timestamptz;
+
+-- Speeds up "find the first unassigned code" lookups as the table grows.
+create index if not exists licenses_unassigned_idx on licenses (created_at) where assigned = false;
+
+-- Atomically claims the oldest unassigned code and marks it assigned.
+-- Uses FOR UPDATE SKIP LOCKED so two concurrent callers can never be handed
+-- the same code: each transaction locks a distinct unassigned row (skipping
+-- rows already locked by other in-flight calls) before updating it.
+create or replace function assign_next_license()
+returns table(code text, assigned boolean)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_row licenses%rowtype;
+begin
+  update licenses
+  set assigned = true,
+      assigned_at = now()
+  where licenses.code = (
+    select l.code
+    from licenses l
+    where l.assigned = false
+    order by l.created_at asc
+    for update skip locked
+    limit 1
+  )
+  returning * into updated_row;
+
+  if updated_row.code is not null then
+    return query select updated_row.code, true;
+  else
+    return query select null::text, false;
+  end if;
+end;
+$$;
+
+grant execute on function assign_next_license() to service_role;
